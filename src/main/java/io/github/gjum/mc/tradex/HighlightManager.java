@@ -46,7 +46,9 @@ public class HighlightManager {
 	}
 
 	/**
-	 * Registers a position as newly highlighted for all sources.
+	 * Registers a position as newly highlighted.
+	 * Calls unsuppress on all sources - individual sources efficiently skip
+	 * positions they don't track (no-op in most cases).
 	 */
 	public void registerHighlight(Pos pos) {
 		for (HighlightSource source : sources) {

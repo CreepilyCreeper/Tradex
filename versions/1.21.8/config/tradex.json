@@ -1,4 +1,4 @@
 {
-  "highlightMaxDistance": 10,
+  "highlightMaxDistance": 5,
   "highlightLifetimeSeconds": 5
 }

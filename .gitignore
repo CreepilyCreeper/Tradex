@@ -67,6 +67,15 @@ run/
 **/*.log
 **/*.log.gz
 
+# Per-version runtime files (local, should not be pushed)
+versions/*/config/
+versions/*/crash-reports/
+versions/*/downloads/
+versions/*/realms_persistence.json
+versions/*/gradle.properties
+
+
+
 ### Misc ###
 jar-entries.txt
 latest.log

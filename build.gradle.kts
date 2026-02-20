@@ -49,7 +49,10 @@ dependencies {
     // Do not add Fabric's JUnit launcher to test classpath — it tries to initialise
     // the Fabric loader and loads all mods which breaks plain unit tests (namespace mismatch).
     // Use plain JUnit on the test classpath instead.
-    testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.9.3")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.3")
     testImplementation(sourceSets.main.get().output)
 }
 
@@ -111,9 +114,14 @@ tasks {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        includeEngines("junit-jupiter")
+    }
     // Ensure tests run on the plain test runtime classpath (exclude Loom/ remapped mod jars)
     classpath = sourceSets.test.get().runtimeClasspath
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
 
 sourceSets {

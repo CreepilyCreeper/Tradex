@@ -179,40 +179,27 @@ public class Render {
 		}
 
 		// Render search results - prefer upstream's lastSearchResult if available
-		//? if >=1.21.11 {
-		boolean useThroughBlocks = false;
-		MultiBufferSource blueConsumers = null;
-		ByteBufferBuilder blueBuffer = null;
-		//?}
-
-		if (mod.lastSearchResult != null && mod.lastSearchResult.ts > now - hourMs) {
+		var searchResult = mod.highlightManager.searchSource.getSearchResult();
+		if (searchResult != null && searchResult.ts > now - hourMs) {
 			//? if >=1.21.11 {
 			// Use a separate BufferSource for blue boxes so we fully control the flush
 			// and our custom NO_DEPTH_TEST pipeline is properly applied.
-			blueBuffer = new ByteBufferBuilder(1024);
-			blueConsumers = MultiBufferSource.immediate(blueBuffer);
-			useThroughBlocks = true;
-			//?}
-			for (var exchange : mod.lastSearchResult.exchanges) {
-				if (drew.contains(exchange.pos)) continue; // multiple results in same container
-				if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
-				// inflate 0.01 to show above barrel without z fighting
-				var aabb = new AABB(exchange.pos.block()).inflate(0.01);
-				//? if >=1.21.11 {
-				renderFilledBox(matrices, blueConsumers, aabb, Color.LIGHTBLUE, 0.3f, true);
-				//?} else if >=1.21.6 {
-				/*renderFilledBox(matrices, consumers, aabb, Color.LIGHTBLUE, 0.3f);
-				*///?} else {
-				/*renderFilledBox(aabb, Color.LIGHTBLUE, 0.3f);
-				*///?}
-				drew.add(exchange.pos);
+			var blueBuffer = new ByteBufferBuilder(1024);
+			try {
+				var blueConsumers = MultiBufferSource.immediate(blueBuffer);
+				for (var exchange : searchResult.exchanges) {
+					if (drew.contains(exchange.pos)) continue; // multiple results in same container
+					if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+					// inflate 0.01 to show above barrel without z fighting
+					var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+					renderFilledBox(matrices, blueConsumers, aabb, Color.LIGHTBLUE, 0.3f, true);
+					drew.add(exchange.pos);
+				}
+				// Flush and close our dedicated buffer - this is what actually draws with our pipeline
+				((MultiBufferSource.BufferSource) blueConsumers).endBatch();
+			} finally {
+				blueBuffer.close();
 			}
-			//? if >=1.21.11 {
-			// Flush and close our dedicated buffer - this is what actually draws with our pipeline
-			blueConsumers.endBatch();
-			blueBuffer.close();
-			blueBuffer = null;
-			blueConsumers = null;
 			//?}
 		} else {
 			// Fallback: use HighlightSource (from WIP)
@@ -223,15 +210,17 @@ public class Render {
 				if (drew.contains(pos)) continue; // multiple results in same container
 				// inflate 0.01 to show above barrel without z fighting
 				var aabb = new AABB(pos.block()).inflate(0.01);
-				//? if >=1.21.6 {
-				renderFilledBox(matrices, consumers, aabb, Color.LIGHTBLUE, 0.3f);
-				//?} else {
+				//? if >=1.21.11 {
+				renderFilledBox(matrices, consumers, aabb, Color.LIGHTBLUE, 0.3f, false);
+				//?} else if >=1.21.6 {
+				/*renderFilledBox(matrices, consumers, aabb, Color.LIGHTBLUE, 0.3f);
+				*///?} else {
 				/*renderFilledBox(aabb, Color.LIGHTBLUE, 0.3f);
 				*///?}
 				drew.add(pos);
 			}
 		}
-		}
+
 
 		//? if >=1.21.6 {
 		matrices.popPose();

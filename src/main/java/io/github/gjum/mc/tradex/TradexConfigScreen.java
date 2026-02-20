@@ -27,7 +27,7 @@ public class TradexConfigScreen {
 		highlights.addEntry(entryBuilder.startIntField(
 						Component.literal("Highlight Max Distance (blocks)"),
 						config.highlightMaxDistance)
-				.setDefaultValue(0)
+				.setDefaultValue(5)
 				.setMin(0)
 				.setMax(256)
 				.setTooltip(Component.literal(
@@ -39,7 +39,7 @@ public class TradexConfigScreen {
 		highlights.addEntry(entryBuilder.startIntField(
 						Component.literal("Highlight Lifetime (seconds)"),
 						config.highlightLifetimeSeconds)
-				.setDefaultValue(15)
+				.setDefaultValue(5)
 				.setMin(0)
 				.setMax(60)
 				.setTooltip(Component.literal(

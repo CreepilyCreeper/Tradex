@@ -38,8 +38,10 @@ public class ExploredExchangesSource implements HighlightSource {
 		int lifetimeSec = config.highlightLifetimeSeconds;
 		var playerBlockPos = mc.player.blockPosition();
 
-		// Iterate over a copy to safely during iteration
-		for (var entry : new ArrayList<>(exchanges.entrySet())) {
+		// Iterate using iterator for safe removal without copying
+		var it = exchanges.entrySet().iterator();
+		while (it.hasNext()) {
+			var entry = it.next();
 			Pos pos = entry.getKey();
 
 			// Skip suppressed positions
@@ -70,8 +72,8 @@ public class ExploredExchangesSource implements HighlightSource {
 			}
 
 			if (shouldPurge) {
-				// Purge this position
-				exchanges.remove(pos);
+				// Purge this position using iterator for safe removal
+				it.remove();
 				highlightCreationTimes.remove(pos);
 				suppressedPositions.add(pos);
 			} else {

@@ -27,6 +27,16 @@ public class Exchanges {
 					for (var exchange : searchResult.exchanges) {
 						exchange.fixNulls();
 					}
+					// If client requested "cheapest" sorting, ensure we sort by per-normal-item price
+					if (query != null && query.sortMode != null && "cheapest".equalsIgnoreCase(query.sortMode)) {
+						searchResult.exchanges.sort(java.util.Comparator.comparingDouble(e -> {
+							if (e.output == null) return Double.POSITIVE_INFINITY;
+							// use decompacted counts (normalized counts) for math
+							double inCount = Math.max(1, (double) e.input.countDecompacted());
+							double outCount = Math.max(1, (double) e.output.countDecompacted());
+							return inCount / outCount; // cost (input) per single normalized output item
+						}));
+					}
 				})
 				.exceptionally(Api.logError("Failed searching exchanges"));
 	}
