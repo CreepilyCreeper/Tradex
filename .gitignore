@@ -66,6 +66,8 @@ run/
 *.log
 **/*.log
 **/*.log.gz
+**/logs/
+versions/*/logs/latest.log
 
 # Per-version runtime files (local, should not be pushed)
 versions/*/config/
@@ -79,3 +81,4 @@ versions/*/gradle.properties
 ### Misc ###
 jar-entries.txt
 latest.log
+versions/*/data/

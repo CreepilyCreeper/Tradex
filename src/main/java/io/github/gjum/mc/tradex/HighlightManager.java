@@ -21,10 +21,12 @@ public class HighlightManager {
 
 	public final ExploredExchangesSource exploredSource = new ExploredExchangesSource();
 	public final SearchResultSource searchSource = new SearchResultSource();
+	public final NearbyExchangesSource nearbySource = new NearbyExchangesSource();
 
 	public HighlightManager() {
 		sources.add(exploredSource);
 		sources.add(searchSource);
+		sources.add(nearbySource);
 	}
 
 	/**

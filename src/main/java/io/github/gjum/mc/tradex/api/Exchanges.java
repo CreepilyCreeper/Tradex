@@ -37,6 +37,13 @@ public class Exchanges {
 							return inCount / outCount; // cost (input) per single normalized output item
 						}));
 					}
+					// If client requested "closest" sorting, ensure we sort by distance from player position
+					if (query != null && query.sortMode != null && "closest".equalsIgnoreCase(query.sortMode) && query.pos != null) {
+						searchResult.exchanges.sort(java.util.Comparator.comparingDouble(e -> {
+							if (e.pos == null) return Double.POSITIVE_INFINITY;
+							return query.pos.distance(e.pos);
+						}));
+					}
 				})
 				.exceptionally(Api.logError("Failed searching exchanges"));
 	}

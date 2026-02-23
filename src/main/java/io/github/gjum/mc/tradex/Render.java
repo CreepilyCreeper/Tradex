@@ -40,8 +40,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 *///?}
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.HashSet;
+import java.awt.Color;import java.util.HashSet;
 
 import static io.github.gjum.mc.tradex.TradexMod.mod;
 import static io.github.gjum.mc.tradex.Utils.mc;
@@ -138,12 +137,73 @@ public class Render {
 
 		var drew = new HashSet<Pos>();
 
+		// Check if nearby highlighting is active - if so, render it first and skip explored for those positions
+		boolean nearbyActive = mod.highlightManager.nearbySource.hasActiveHighlights();
+
+		// Render nearby exchanges (highlighted with the "Highlight Nearby" button)
+		// When active, render BEFORE explored to take priority (updated colors)
+		// For 1.21.11+: render through walls using NO_DEPTH_TEST pipeline
+		// For 1.21.6-1.21.10: render with depth testing (blocked by walls), dot overlay shows positions
+		if (nearbyActive) {
+			var nearbyResult = mod.highlightManager.nearbySource.getSearchResult();
+			if (nearbyResult != null && nearbyResult.ts > now - hourMs) {
+				//? if >=1.21.11 {
+				// Use a separate BufferSource for nearby boxes
+				var nearbyBuffer = new ByteBufferBuilder(1024);
+				try {
+					var nearbyConsumers = MultiBufferSource.immediate(nearbyBuffer);
+					for (var exchange : nearbyResult.exchanges) {
+						if (drew.contains(exchange.pos)) continue; // already drawn from search results
+						if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+
+						// Determine color based on stock and update time
+						// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
+						var color = exchange.stock < 0 ? Color.RED
+								: exchange.time < now - Utils.weekMs ? Color.ORANGE
+								: new Color(0, 1f, 0.5f);
+
+						// inflate 0.01 to show above barrel without z fighting
+						var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+						renderFilledBox(matrices, nearbyConsumers, aabb, color, 0.3f, true);
+						drew.add(exchange.pos);
+					}
+					// Flush and close our dedicated buffer
+					((MultiBufferSource.BufferSource) nearbyConsumers).endBatch();
+				} finally {
+					nearbyBuffer.close();
+				}
+				//?} else if >=1.21.6 {
+				/*// For 1.21.6-1.21.10: render with depth testing (blocked by walls)
+				// Dot overlay (OverlayRender) shows positions through walls
+				for (var exchange : nearbyResult.exchanges) {
+					if (drew.contains(exchange.pos)) continue; // already drawn from search results
+					if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+
+					// Determine color based on stock and update time
+					// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
+					var color = exchange.stock < 0 ? Color.RED
+							: exchange.time < now - Utils.weekMs ? Color.ORANGE
+							: new Color(0, 1f, 0.5f);
+
+					// inflate 0.01 to show above barrel without z fighting
+					var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+					renderFilledBox(matrices, consumers, aabb, color, 0.3f);
+					drew.add(exchange.pos);
+				}
+				*///?}
+			}
+		}
+
 		// Render explored exchanges (from chat)
+		// These should respect depth test (blocked by walls)
+		//? if <1.21.6 {
+		/*RenderSystem.enableDepthTest();
+		*///?}
 		var exploredPositions = mod.highlightManager.exploredSource.getActivePositions(
 			mod.getPlayerPos(), now, pos -> pos.block().distSqr(mc.player.blockPosition()) <= range * range
 		);
 		for (Pos pos : exploredPositions) {
-			if (drew.contains(pos)) continue; // already drawn from search results
+			if (drew.contains(pos)) continue; // already drawn (from search or nearby)
 
 			var chest = mod.highlightManager.exploredSource.getChest(pos);
 			if (chest == null) continue;
@@ -177,8 +237,14 @@ public class Render {
 			*///?}
 			drew.add(pos);
 		}
+		//? if <1.21.6 {
+		/*RenderSystem.disableDepthTest();
+		*///?}
 
 		// Render search results - prefer upstream's lastSearchResult if available
+		// For 1.21.11+: render through walls using NO_DEPTH_TEST pipeline
+		// For 1.21.6-1.21.10: render with depth testing (blocked by walls), dot overlay shows positions
+		// For <1.21.6: render through walls using RenderSystem.disableDepthTest()
 		var searchResult = mod.highlightManager.searchSource.getSearchResult();
 		if (searchResult != null && searchResult.ts > now - hourMs) {
 			//? if >=1.21.11 {
@@ -200,7 +266,28 @@ public class Render {
 			} finally {
 				blueBuffer.close();
 			}
-			//?}
+			//?} else if >=1.21.6 {
+			/*// For 1.21.6-1.21.10: render with depth testing (blocked by walls)
+			// Dot overlay (OverlayRender) shows positions through walls
+			for (var exchange : searchResult.exchanges) {
+				if (drew.contains(exchange.pos)) continue;
+				if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+				var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+				renderFilledBox(matrices, consumers, aabb, Color.LIGHTBLUE, 0.3f);
+				drew.add(exchange.pos);
+			}
+			*///?} else {
+			/*// For versions below 1.21.6, render search results
+			// Global depth disable makes them work through walls
+			for (var exchange : searchResult.exchanges) {
+				if (drew.contains(exchange.pos)) continue; // multiple results in same container
+				if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+				// inflate 0.01 to show above barrel without z fighting
+				var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+				renderFilledBox(aabb, Color.LIGHTBLUE, 0.3f);
+				drew.add(exchange.pos);
+			}
+			*///?}
 		} else {
 			// Fallback: use HighlightSource (from WIP)
 			var searchPositions = mod.highlightManager.searchSource.getActivePositions(
@@ -218,6 +305,61 @@ public class Render {
 				/*renderFilledBox(aabb, Color.LIGHTBLUE, 0.3f);
 				*///?}
 				drew.add(pos);
+			}
+		}
+
+		// Render nearby exchanges (highlighted with the "Highlight Nearby" button)
+		// Only render if not already rendered above (for backwards compatibility)
+		// For 1.21.11+: render through walls using NO_DEPTH_TEST pipeline
+		// For 1.21.6-1.21.10: render with depth testing (blocked by walls), dot overlay shows positions
+		// For <1.21.6: render through walls using RenderSystem.disableDepthTest()
+		if (!nearbyActive) {
+			var nearbyResult = mod.highlightManager.nearbySource.getSearchResult();
+			if (nearbyResult != null && nearbyResult.ts > now - hourMs) {
+				//? if >=1.21.11 {
+				// Use a separate BufferSource for nearby boxes so we fully control the flush
+				var nearbyBuffer = new ByteBufferBuilder(1024);
+				try {
+					var nearbyConsumers = MultiBufferSource.immediate(nearbyBuffer);
+					for (var exchange : nearbyResult.exchanges) {
+						if (drew.contains(exchange.pos)) continue; // already drawn from other sources
+						if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+
+						// Determine color based on stock and update time
+						// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
+						var color = exchange.stock < 0 ? Color.RED
+								: exchange.time < now - Utils.weekMs ? Color.ORANGE
+								: new Color(0, 1f, 0.5f);
+
+						// inflate 0.01 to show above barrel without z fighting
+						var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+						renderFilledBox(matrices, nearbyConsumers, aabb, color, 0.3f, true);
+						drew.add(exchange.pos);
+					}
+					// Flush and close our dedicated buffer
+					((MultiBufferSource.BufferSource) nearbyConsumers).endBatch();
+				} finally {
+					nearbyBuffer.close();
+				}
+				//?} else if >=1.21.6 {
+				/*// For 1.21.6-1.21.10: render with depth testing (blocked by walls)
+				// Dot overlay (OverlayRender) shows positions through walls
+				for (var exchange : nearbyResult.exchanges) {
+					if (drew.contains(exchange.pos)) continue; // already drawn from other sources
+					if (exchange.pos.block().distSqr(mc.player.blockPosition()) > range * range) continue;
+
+					// Determine color based on stock and update time
+					// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
+					var color = exchange.stock < 0 ? Color.RED
+							: exchange.time < now - Utils.weekMs ? Color.ORANGE
+							: new Color(0, 1f, 0.5f);
+
+					// inflate 0.01 to show above barrel without z fighting
+					var aabb = new AABB(exchange.pos.block()).inflate(0.01);
+					renderFilledBox(matrices, consumers, aabb, color, 0.3f);
+					drew.add(exchange.pos);
+				}
+				*///?}
 			}
 		}
 
@@ -242,6 +384,7 @@ public class Render {
 		public static final Color LIGHTBLUE = new Color(0, 1, 1);
 		public static final Color YELLOW = new Color(1, 1, 0);
 		public static final Color ORANGE = new Color(1, .5f, 0);
+		public static final Color MAGENTA = new Color(1, 0, 1);
 	}
 
 	//? if >=1.21.6 {
