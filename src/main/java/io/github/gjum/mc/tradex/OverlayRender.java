@@ -30,13 +30,12 @@ public class OverlayRender {
 	private static final int COLOR_LIGHTBLUE = 0x4400FFFF;
 	private static final int COLOR_MAGENTA = 0x44FF00FF;
 
-	// Min/max dot sizes in pixels
-	private static final int MIN_DOT_SIZE = 4;
-	private static final int MAX_DOT_SIZE = 16;
+	// Scale factor for the indicator relative to actual block size
+	// 0.3 means indicator is 30% of the block's screen size
+	private static final float BLOCK_SCALE_FACTOR = 0.8f;
 
-	// Distance range for scaling (in blocks)
-	private static final float MIN_DISTANCE = 2f;
-	private static final float MAX_DISTANCE = 100f;
+	// Minimum indicator size in pixels (for very distant blocks)
+	private static final int MIN_DOT_SIZE = 2;
 
 	public static void renderHudOverlay(GuiGraphics graphics, DeltaTracker tickDelta) {
 		if (mc.player == null || mc.level == null) return;
@@ -75,8 +74,8 @@ public class OverlayRender {
 				var screenPos = projectPoint(center, camPos, viewProj, screenWidth, screenHeight);
 				if (screenPos != null) {
 					float distance = (float) camPos.distanceTo(center);
-					int size = calculateDotSize(distance);
-					dotsToDraw.add(new DotIndicator((int) screenPos[0], (int) screenPos[1], 
+					int size = calculateDotSize(center, camPos, viewProj, screenHeight, mc.options.fov().get());
+					dotsToDraw.add(new DotIndicator((int) screenPos[0], (int) screenPos[1],
 							size, COLOR_LIGHTBLUE, distance));
 					drew.add(exchange.pos);
 				}
@@ -106,7 +105,7 @@ public class OverlayRender {
 				var screenPos = projectPoint(center, camPos, viewProj, screenWidth, screenHeight);
 				if (screenPos != null) {
 					float distance = (float) camPos.distanceTo(center);
-					int size = calculateDotSize(distance);
+					int size = calculateDotSize(center, camPos, viewProj, screenHeight, mc.options.fov().get());
 					dotsToDraw.add(new DotIndicator((int) screenPos[0], (int) screenPos[1],
 							size, colorToArgb(color, 0.27f), distance));
 					drew.add(exchange.pos);
@@ -154,14 +153,30 @@ public class OverlayRender {
 		return true;
 	}
 
-	// Calculate dot size based on distance (larger when closer)
-	private static int calculateDotSize(float distance) {
-		if (distance <= MIN_DISTANCE) return MAX_DOT_SIZE;
-		if (distance >= MAX_DISTANCE) return MIN_DOT_SIZE;
+	// Calculate dot size based on actual perspective projection of a block
+	// Returns the screen size that a block would appear, scaled by BLOCK_SCALE_FACTOR
+	private static int calculateDotSize(Vec3 worldPos, Vec3 camPos, Matrix4f viewProj,
+	                                  int screenHeight, float fov) {
+		// Project block center to get w coordinate (depth factor)
+		float relX = (float) (worldPos.x - camPos.x);
+		float relY = (float) (worldPos.y - camPos.y);
+		float relZ = (float) (worldPos.z - camPos.z);
 
-		// Linear interpolation: closer = bigger
-		float t = (distance - MIN_DISTANCE) / (MAX_DISTANCE - MIN_DISTANCE);
-		return (int) (MAX_DOT_SIZE - t * (MAX_DOT_SIZE - MIN_DOT_SIZE));
+		Vector4f clipPos = new Vector4f(relX, relY, relZ, 1.0f);
+		clipPos.mul(viewProj);
+
+		// w contains the perspective divide factor
+		if (clipPos.w <= 0.01f) return MIN_DOT_SIZE;
+
+		// In perspective projection, screen size is proportional to viewport_height / w * tan(fov/2)
+		// A 1-unit object in world space takes up: (viewport_height / (2 * w * tan(fov/2))) pixels on screen
+		float fovRad = (float) Math.toRadians(fov);
+		float screenScale = screenHeight / (2.0f * (float) Math.tan(fovRad / 2.0f));
+		float blockScreenSize = screenScale / Math.abs(clipPos.w);
+
+		// Apply scale factor and clamp to minimum
+		int indicatorSize = (int) (blockScreenSize * BLOCK_SCALE_FACTOR);
+		return Math.max(MIN_DOT_SIZE, indicatorSize);
 	}
 
 	// Build the view matrix from camera rotation.
