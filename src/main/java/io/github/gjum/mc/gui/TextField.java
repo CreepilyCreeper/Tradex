@@ -39,6 +39,15 @@ public class TextField extends Clickable {
 		textField = new EditBox(mc.font, 0, 0, 0, 0, Component.literal(""));
 		textField.setMaxLength(9999999);
 		textField.setResponder(guiResponder);
+		// Don't use EditBox's native hint support as it doesn't properly clip text
+		// We'll manually render hints with proper truncation instead
+		// Note: EditBox.setHint() is available in 1.21.8+ but doesn't properly truncate hint text
+		/*//? if >=1.21.8 {
+		// Use EditBox's native hint support (available in 1.21.8+)
+		if (hint != null && !hint.isEmpty()) {
+			textField.setHint(Component.literal(hint));
+		}
+		//?}*/
 		if (text != null) setText(text);
 		textField.moveCursorToStart(false); // make start of text visible if it's longer than the EditBox
 		handleChanged();
@@ -120,16 +129,22 @@ public class TextField extends Clickable {
 		//?} else {
 		/*textField.render(context, mouse.x, mouse.y, partialTicks);
 		*///?}
+		// Manually draw hint for all versions with proper clipping to fit within bounds
 		if (textField.getValue().isEmpty() && hint != null && !hint.isEmpty()) {
 			int x = textField.getX() + 4;
 			int y = textField.getY() + (getSize().y - 4 - 8) / 2;
+			// Trim hint to fit within the text field bounds
+			// Hint is drawn 4 pixels into EditBox (which is 4 pixels narrower than TextField)
+			// So from TextField left edge: 2(margin) + 4(padding) = 6 pixels in
+			// Available width: TextField.width - 6(left_offset) - 2(right_margin)
+			int availableWidth = getSize().x - 8;
 			String hintTrimmed = mc.font.substrByWidth(
-					Component.literal(hint), getSize().x - 8).getString();
+					Component.literal(hint), availableWidth).getString();
 			//? if >=1.21.6 {
 			context.drawString(mc.font, hintTrimmed, x, y, mutedColor, false);
 			//?} else {
-			/*context.drawString(mc.font, hintTrimmed, x, y, mutedColor);
-			*///?}
+			context.drawString(mc.font, hintTrimmed, x, y, mutedColor);
+			//?}
 		}
 	}
 

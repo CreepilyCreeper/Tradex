@@ -158,7 +158,7 @@ public class Render {
 
 						// Determine color based on stock and update time
 						// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
-						var color = exchange.stock < 0 ? Color.RED
+						var color = exchange.stock <= 0 ? Color.RED
 								: exchange.time < now - Utils.weekMs ? Color.ORANGE
 								: new Color(0, 1f, 0.5f);
 
@@ -181,7 +181,7 @@ public class Render {
 
 					// Determine color based on stock and update time
 					// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
-					var color = exchange.stock < 0 ? Color.RED
+					var color = exchange.stock <= 0 ? Color.RED
 							: exchange.time < now - Utils.weekMs ? Color.ORANGE
 							: new Color(0, 1f, 0.5f);
 
@@ -327,7 +327,7 @@ public class Render {
 
 						// Determine color based on stock and update time
 						// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
-						var color = exchange.stock < 0 ? Color.RED
+						var color = exchange.stock <= 0 ? Color.RED
 								: exchange.time < now - Utils.weekMs ? Color.ORANGE
 								: new Color(0, 1f, 0.5f);
 
@@ -350,7 +350,7 @@ public class Render {
 
 					// Determine color based on stock and update time
 					// Out of stock = RED, outdated (> 1 week) = ORANGE, recent & stocked = green-blue mixture
-					var color = exchange.stock < 0 ? Color.RED
+					var color = exchange.stock <= 0 ? Color.RED
 							: exchange.time < now - Utils.weekMs ? Color.ORANGE
 							: new Color(0, 1f, 0.5f);
 

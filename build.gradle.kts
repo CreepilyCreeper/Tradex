@@ -104,6 +104,14 @@ tasks {
         filesMatching("fabric.mod.json") { expand(props) }
     }
 
+    // Sources JAR should not include fabric.mod.json since it contains placeholders
+    // The actual mod metadata is in the main remapped JAR
+    named<Jar>("sourcesJar") {
+        from("src/main/resources") {
+            exclude("fabric.mod.json")
+        }
+    }
+
     // Builds the version into a shared folder in `build/libs/${mod version}/`
     register<Copy>("buildAndCollect") {
         group = "build"
