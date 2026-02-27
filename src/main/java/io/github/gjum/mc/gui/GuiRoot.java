@@ -78,9 +78,7 @@ public abstract class GuiRoot extends Screen implements GuiParent {
 
 			if (root == null) {
 				root = build();
-				if (root != null) {
-					root.setParent(this);
-				}
+				root.setParent(this);
 				prevSize = null;
 				dirtyLayout = true;
 			}
